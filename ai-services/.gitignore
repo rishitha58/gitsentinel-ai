@@ -1,0 +1,20 @@
+# Dependencies
+node_modules/
+
+# Environment & Secrets (CRITICAL - never commit!)
+.env
+.env.local
+*.pem
+private-key.pem
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

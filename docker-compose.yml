@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gitsentinel-postgres
+    environment:
+      POSTGRES_DB: gitsentinel
+      POSTGRES_USER: gitsentinel_user
+      POSTGRES_PASSWORD: gitsentinel_pass_123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gitsentinel_user -d gitsentinel"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gitsentinel-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: gitsentinel-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - gitsentinel-network
+
+  ai-service:
+    build: ./ai-services
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./ai-services/.env
+    networks:
+      - gitsentinel-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  backend:
+    build: ./backend
+    container_name: gitsentinel-backend
+    ports:
+      - "3001:3001"
+    env_file:
+      - ./backend/.env
+    environment:
+      - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+      - AI_SERVICE_URL=http://ai-service:8000
+    volumes:
+      - ./backend/private-key.pem:/app/private-key.pem
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ai-service:
+        condition: service_healthy
+    networks:
+      - gitsentinel-network
+
+  frontend:
+    build: ./frontend
+    container_name: gitsentinel-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_API_URL=http://localhost:3001/api
+    depends_on:
+      - backend
+    networks:
+      - gitsentinel-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  gitsentinel-network:
+    driver: bridge
