@@ -11,4 +11,4 @@ function getUser(req, res) {
 }
 
 module.exports = getUser;
-console.log("testing 2");
+console.log("testing-3");
